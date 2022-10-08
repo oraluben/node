@@ -116,8 +116,17 @@ size_t base64_decoded_size(const TypeName* src, size_t size) {
 template <typename TypeName>
 size_t base64_decode(char* const dst, const size_t dstlen,
                      const TypeName* const src, const size_t srclen) {
-  const size_t decoded_size = base64_decoded_size(src, srclen);
-  return base64_decode_fast(dst, dstlen, src, srclen, decoded_size);
+  const size_t decoded_size_orig = base64_decoded_size(src, srclen);
+  size_t decoded_size = decoded_size_orig;
+  char* narrowed_src = new char[srclen];
+  for (size_t i = 0; i < srclen; i++) {
+    narrowed_src[i] = (char) src[i];
+  }
+  if (::base64_decode(narrowed_src, srclen, dst, &decoded_size, 0) != 1) {
+    decoded_size = base64_decode_fast(dst, dstlen, src, srclen, decoded_size_orig);
+  }
+  delete[] narrowed_src;
+  return decoded_size;
 }
 
 

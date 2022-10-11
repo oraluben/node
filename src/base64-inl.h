@@ -113,15 +113,37 @@ size_t base64_decoded_size(const TypeName* src, size_t size) {
 }
 
 
+#include "arm_neon.h"
+#include <cstddef>
+
+
+template <typename TypeName>
+void narrow_native(char* const narrowed_dst, const TypeName* const src, const size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    narrowed_dst[i] = (char) src[i];
+  }
+}
+
+
+template <typename TypeName>
+void narrow(char* narrowed_dst, const TypeName* src, size_t len) {
+  while (len >= 16) {
+    *(((uint8x16_t*)narrowed_dst) + 0) = vuzp1q_u8(*(uint8x16_t*)(src + 0), *(uint8x16_t*)(src + 8));
+    narrowed_dst += 16;
+    src += 16;
+    len -= 16;
+  }
+  narrow_native(narrowed_dst, src, len);
+}
+
+
 template <typename TypeName>
 size_t base64_decode(char* const dst, const size_t dstlen,
                      const TypeName* const src, const size_t srclen) {
   const size_t decoded_size_orig = base64_decoded_size(src, srclen);
   size_t decoded_size = decoded_size_orig;
   char* narrowed_src = new char[srclen];
-  for (size_t i = 0; i < srclen; i++) {
-    narrowed_src[i] = (char) src[i];
-  }
+  narrow(narrowed_src, src, srclen);
   if (::base64_decode(narrowed_src, srclen, dst, &decoded_size, 0) != 1) {
     decoded_size = base64_decode_fast(dst, dstlen, src, srclen, decoded_size_orig);
   }
